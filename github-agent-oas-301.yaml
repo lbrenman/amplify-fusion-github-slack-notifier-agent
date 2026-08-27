@@ -1,0 +1,202 @@
+openapi: 3.0.1
+info:
+  title: github-monitor Agent API
+  description: >
+    Control API and A2A discovery endpoints for the github-monitor autonomous
+    agent. Exposes enable/disable controls, status, and the A2A agent card.
+  version: 3.0.0
+
+paths:
+
+  /:
+    get:
+      summary: Web UI
+      description: Returns the live HTML control dashboard with enable/disable toggle and activity log.
+      operationId: getWebUI
+      responses:
+        '200':
+          description: HTML dashboard page
+          content:
+            text/html:
+              schema:
+                type: string
+
+  /status:
+    get:
+      summary: Get agent status
+      description: Returns the current runtime status of the github-monitor agent as JSON.
+      operationId: getStatus
+      responses:
+        '200':
+          description: Current agent status
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Status'
+              example:
+                enabled: true
+                pollCount: 12
+                lastPollTime: '2026-08-27T14:30:00.000Z'
+                lastEventTime: '2026-08-27T14:28:00.000Z'
+                lastEventSummary: 'Leor pushed 2 commits to hello-agent on the main branch.'
+                repos:
+                  - lbrenman/hello-agent
+                  - lbrenman/fhir-codespace
+                notifier: slack-notifier-agent
+
+  /enable:
+    post:
+      summary: Enable the agent
+      description: Enables GitHub polling. The agent resumes checking for new events on the next poll interval.
+      operationId: enableAgent
+      responses:
+        '200':
+          description: Agent enabled
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EnabledResponse'
+              example:
+                enabled: true
+
+  /disable:
+    post:
+      summary: Disable the agent
+      description: Disables GitHub polling. Polls are skipped and no A2A tasks are sent to the notifier while disabled.
+      operationId: disableAgent
+      responses:
+        '200':
+          description: Agent disabled
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EnabledResponse'
+              example:
+                enabled: false
+
+  /.well-known/agent-card.json:
+    get:
+      summary: A2A Agent Card (v0.3+)
+      description: Returns the A2A v0.3.0 agent card advertising this agent's identity, capabilities, and skills.
+      operationId: getAgentCard
+      responses:
+        '200':
+          description: A2A Agent Card
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AgentCard'
+
+  /.well-known/agent.json:
+    get:
+      summary: A2A Agent Card (legacy alias)
+      description: Returns the A2A v0.2.x agent card. Kept as a fallback alias for older clients.
+      operationId: getAgentCardLegacy
+      responses:
+        '200':
+          description: A2A Agent Card
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AgentCard'
+
+components:
+  schemas:
+
+    Status:
+      type: object
+      properties:
+        enabled:
+          type: boolean
+          description: Whether the agent is currently polling GitHub
+        pollCount:
+          type: integer
+          description: Total number of poll cycles completed since startup
+        lastPollTime:
+          type: string
+          format: date-time
+          description: ISO 8601 timestamp of the most recent poll attempt
+          nullable: true
+        lastEventTime:
+          type: string
+          format: date-time
+          description: ISO 8601 timestamp of the last poll that found new events
+          nullable: true
+        lastEventSummary:
+          type: string
+          description: Claude's summary from the most recent detected events
+          nullable: true
+        repos:
+          type: array
+          items:
+            type: string
+          description: List of repos being monitored in owner/repo format
+        notifier:
+          type: string
+          description: Name of the connected notifier agent
+          nullable: true
+
+    EnabledResponse:
+      type: object
+      properties:
+        enabled:
+          type: boolean
+          description: The new enabled state of the agent
+
+    AgentCard:
+      type: object
+      properties:
+        name:
+          type: string
+          example: github-monitor
+        description:
+          type: string
+        version:
+          type: string
+          example: 3.0.0
+        url:
+          type: string
+          description: Publicly reachable base URL of the agent. Set via PUBLIC_URL env var.
+          example: https://effective-goggles-r44r56q4pfq4-3000.app.github.dev
+        defaultInputModes:
+          type: array
+          description: Default input content types supported by this agent.
+          items:
+            type: string
+          example: ['application/json', 'text/plain']
+        defaultOutputModes:
+          type: array
+          description: Default output content types produced by this agent.
+          items:
+            type: string
+          example: ['application/json', 'text/plain']
+        capabilities:
+          type: object
+          properties:
+            streaming:
+              type: boolean
+            pushNotifications:
+              type: boolean
+        skills:
+          type: array
+          items:
+            type: object
+            properties:
+              id:
+                type: string
+              name:
+                type: string
+              description:
+                type: string
+              tags:
+                type: array
+                items:
+                  type: string
+              inputModes:
+                type: array
+                items:
+                  type: string
+              outputModes:
+                type: array
+                items:
+                  type: string
